@@ -1,0 +1,60 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Scripts
+scripts/
+
+# Node
+node_modules/
+npm-debug.log
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Runtime data
+runtime/
+
+# Design documents
+设计文档/
+

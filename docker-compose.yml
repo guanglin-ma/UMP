@@ -1,0 +1,135 @@
+version: '3.8'
+
+services:
+  # Backend API
+  api:
+    build:
+      context: ./backend/api
+      dockerfile: Dockerfile
+    image: ump-api:latest
+    container_name: ump-api
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=ump
+      - POSTGRES_PASSWORD=ump_password
+      - POSTGRES_DB=ump
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - DEV_MODE=false
+    depends_on:
+      - postgres
+      - redis
+      - clickhouse
+    networks:
+      - ump-network
+    restart: unless-stopped
+
+  # Gateway
+  gateway:
+    build:
+      context: ./backend/gateway
+      dockerfile: Dockerfile
+    image: ump-gateway:latest
+    container_name: ump-gateway
+    ports:
+      - "8090:8090"
+    environment:
+      - GATEWAY_API_KEY=${GATEWAY_API_KEY:-test-key}
+      - GATEWAY_SIGNING_SECRET=${GATEWAY_SIGNING_SECRET:-test-signing-secret-12345}
+      - GATEWAY_PUBLISH_ENABLED=true
+      - GATEWAY_PUBLISH_BACKEND=kafka
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - kafka
+    networks:
+      - ump-network
+    restart: unless-stopped
+
+  # PostgreSQL
+  postgres:
+    image: postgres:15
+    container_name: ump-postgres
+    environment:
+      - POSTGRES_USER=ump
+      - POSTGRES_PASSWORD=ump_password
+      - POSTGRES_DB=ump
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - ump-network
+    restart: unless-stopped
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: ump-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - ump-network
+    restart: unless-stopped
+
+  # ClickHouse
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: ump-clickhouse
+    environment:
+      - CLICKHOUSE_DB=ump
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    networks:
+      - ump-network
+    restart: unless-stopped
+
+  # Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: ump-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - ump-network
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: ump-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    networks:
+      - ump-network
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  clickhouse-data:
+
+networks:
+  ump-network:
+    driver: bridge
+

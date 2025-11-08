@@ -121,7 +121,6 @@ jobs:
           KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
         ports:
           - 9092:9092
-        depends-on: zookeeper
       
       zookeeper:
         image: confluentinc/cp-zookeeper:7.6.1
@@ -148,7 +147,17 @@ jobs:
       
       - name: Wait for Kafka
         run: |
-          timeout 60 bash -c 'until docker exec $(docker ps -q -f name=kafka) kafka-topics --bootstrap-server localhost:9092 --list; do sleep 2; done'
+          # 等待 Zookeeper 就绪
+          sleep 10
+          # 等待 Kafka 就绪
+          for i in {1..30}; do
+            if docker exec $(docker ps -q -f ancestor=confluentinc/cp-kafka:7.6.1) kafka-topics --bootstrap-server localhost:9092 --list 2>/dev/null; then
+              echo "Kafka is ready!"
+              break
+            fi
+            echo "Waiting for Kafka... ($i/30)"
+            sleep 2
+          done
       
       - name: Run gateway tests
         working-directory: backend/gateway
